@@ -6,8 +6,12 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState("");
+  const [isUrlInput, setIsUrlInput] = useState(false);
   const [exampleUsed, setExampleUsed] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [pmMode, setPmMode] = useState(false);
+  const [expandedIndex, setExpandedIndex] = useState(null);
+
   const getExample = (type) => {
     if (type === "product") {
       return `Product teams are increasingly shifting toward outcome-driven roadmaps instead of feature-based planning. Rather than committing to shipping specific features, teams are defining success metrics and iterating rapidly to achieve them. This has led to tighter collaboration between product, design, and engineering, with faster feedback loops and more experimentation.
@@ -58,10 +62,10 @@ Companies are beginning to explore ways to balance engagement with meaningful va
       {/* Header */}
       <div className="max-w-2xl mx-auto mb-10">
       <h1 className="text-5xl font-semibold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-          SignalBrief — 5-min Signals for PMs
+          SignalBrief — For PMs
         </h1>
         <p className="text-gray-400 mt-2">
-          Turn noise into insights from articles & social posts
+          5 minute insights from articles & social posts
         </p>
       </div>
 
@@ -137,14 +141,40 @@ Companies are beginning to explore ways to balance engagement with meaningful va
             Custom URLs
           </label>
         </div>
+        <div className="flex items-center justify-between mt-4">
+  <p className="text-sm text-gray-400">Think like a PM</p>
 
+  <button
+    onClick={() => setPmMode(!pmMode)}
+    className={`w-12 h-6 rounded-full transition ${
+      pmMode ? "bg-purple-600" : "bg-gray-700"
+    }`}
+  >
+    <div
+      className={`h-6 w-6 bg-white rounded-full transform transition ${
+        pmMode ? "translate-x-6" : "translate-x-0"
+      }`}
+    />
+  </button>
+</div>
         {/* Button */}
         <button
   onClick={async () => {
+    // ✅ 1. Validate input
     if (!input.trim()) {
       alert("Please enter some content");
       return;
     }
+  
+    // ✅ 2. Detect URL (ADD HERE)
+    const isUrl = input.startsWith("http");
+    setIsUrlInput(isUrl);
+  
+    console.log("START");
+  
+    setLoading(true);
+  
+    // 👇 rest of your code continues...
 
     setLoading(true);
 
@@ -153,7 +183,7 @@ Companies are beginning to explore ways to balance engagement with meaningful va
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ input }),
+      body: JSON.stringify({ input, pmMode }),
     });
 
     const data = await res.json();
@@ -165,7 +195,18 @@ Companies are beginning to explore ways to balance engagement with meaningful va
     }
 
     try {
-      setResult(JSON.parse(data.result));
+      try {
+        let cleaned = data.result.trim();
+      
+        // ✅ Remove markdown wrappers if present
+        if (cleaned.startsWith("```")) {
+          cleaned = cleaned.replace(/```json|```/g, "").trim();
+        }
+      
+        setResult(JSON.parse(cleaned));
+      } catch (e) {
+        console.error("JSON parse error:", data.result);
+      }
     } catch (e) {
       console.error("JSON parse error:", data.result);
     }
@@ -181,7 +222,11 @@ Companies are beginning to explore ways to balance engagement with meaningful va
     disabled:opacity-50 disabled:cursor-not-allowed
   "
 >
-  {loading ? "Generating signals..." : "Generate Signals"}
+  {loading
+    ? isUrlInput
+      ? "Fetching article & generating signals..."
+      : "Generating signals..."
+    : "Generate Signals"}
 </button>
       </div>
       {!result && (
@@ -191,31 +236,34 @@ Companies are beginning to explore ways to balance engagement with meaningful va
 )}
       {/* Output Section */}
 {result && Array.isArray(result) && (
-  <div className="max-w-2xl mx-auto mt-10 space-y-6">
+  <div className="max-w-2xl mx-auto mt-10 space-y-4">
     {result.map((item, index) => (
       <div
         key={index}
-        className="bg-[#171717] border border-gray-800 rounded-xl p-5 hover:border-gray-600 transition"
+        className="bg-[#171717] border border-gray-800 rounded-xl p-4 cursor-pointer hover:border-gray-600 transition"
+        onClick={() =>
+          setExpandedIndex(index === expandedIndex ? null : index)
+        }
       >
-        <h2 className="text-lg font-semibold mb-3">
-          🧠 {item.title}
-        </h2>
-
-        <div className="text-sm text-gray-300 space-y-2">
-          {item.points?.map((p, i) => (
-            <p key={i}>• {p}</p>
-          ))}
+        {/* One-liner */}
+        <div className="text-sm font-medium text-white">
+          {item.summary}
         </div>
 
-        {item.conflict && (
-          <div className="mt-3 text-sm text-yellow-400">
-            ⚔️ {item.conflict}
+        {/* Expanded */}
+        {expandedIndex === index && (
+          <div className="mt-3 text-sm text-gray-300 space-y-2">
+            <p>{item.details}</p>
+
+            {pmMode && item.conflict && (
+              <p className="text-yellow-400">⚔️ {item.conflict}</p>
+            )}
+
+            {pmMode && item.implication && (
+              <p className="text-green-400">👉 {item.implication}</p>
+            )}
           </div>
         )}
-
-        <div className="mt-3 text-sm text-green-400">
-          👉 {item.implication}
-        </div>
       </div>
     ))}
   </div>
